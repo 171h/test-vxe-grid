@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { defineComponent, ref, reactive } from "vue";
-import { VxeGridProps, VxeTableInstance, VXETable, VxeToolbarInstance, VxeTablePropTypes, VxeTableEvents } from "vxe-table";
+import {
+  VxeGridProps,
+  VxeTableInstance,
+  VXETable,
+  VxeToolbarInstance,
+  VxeTablePropTypes,
+  VxeTableEvents,
+} from "vxe-table";
 import * as _ from "lodash-es";
 import { Logger } from "@171h/log";
 
@@ -13,7 +20,11 @@ import { Logger } from "@171h/log";
  * 5. 数据的扁平化导出功能
  * 6. cell 的上下左右边距过宽的问题【已解决】
  * 7. 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题【已解决】
- *
+ * 8. 实现数据流从数据源到表格的单项传递【基本实现】
+ * 8.1 insertRowBySource 在任意位置插入行
+ * 8.2 insertRowEndBySource 在末尾插入行
+ * 8.3 modifyCell 修改单元格数据
+ * 8.4 
  */
 
 const logger = new Logger("test.vue");
@@ -21,13 +32,13 @@ const logger = new Logger("test.vue");
 interface RowVO {
   id: number;
   parentId: number | null;
-  name: string;
-  type: string;
-  size: number | null;
-  date: string;
+  name?: string;
+  type?: string;
+  size?: number | null;
+  date?: string;
 }
 
-const data: RowVO[] = [
+const data = reactive<RowVO[]>([
   { id: 10000, parentId: null, name: "test abc1", type: "mp3", size: 1024, date: "2020-08-01" },
   { id: 10050, parentId: null, name: "Test2", type: "mp4", size: null, date: "2021-04-01" },
   { id: 24300, parentId: 10050, name: "Test3", type: "avi", size: 1024, date: "2020-03-01" },
@@ -46,7 +57,7 @@ const data: RowVO[] = [
   { id: 24555, parentId: null, name: "test abc9", type: "avi", size: 224, date: "2020-10-01" },
   { id: 24566, parentId: 24555, name: "Test7", type: "js", size: 1024, date: "2021-06-01" },
   { id: 24577, parentId: 24555, name: "Test7", type: "js", size: 1024, date: "2021-06-01" },
-];
+]);
 
 const demo1 = reactive({
   value400: "",
@@ -61,7 +72,7 @@ const demo1 = reactive({
   value805: "",
 });
 
-const data2 = ref(data);
+// const data2 = ref(data);
 
 // 工具栏绑定===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 const xGrid = ref<VxeTableInstance>();
@@ -81,16 +92,16 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     { type: "checkbox", width: 50, showOverflow: true, align: "center" },
     { type: "seq", width: 100 },
     { field: "name", title: "Name", slots: { edit: "text_edit" }, treeNode: true, editRender: { enabled: true } },
-    { field: "type", title: "Type", slots: { edit: "text_edit" }, showOverflow: true, editRender: { enabled: true } },
+    { field: "type", title: "Type", slots: { edit: "text_edit2" }, showOverflow: true, editRender: { enabled: true } },
     {
       field: "size",
       title: "Size",
-      slots: { edit: "text_edit" },
+      slots: { edit: "text_edit2" },
       showHeaderOverflow: true,
       editRender: { enabled: true },
     },
     { field: "date", title: "Date", slots: { edit: "text_edit" }, showOverflow: true, editRender: { enabled: true } },
-    { title: "操作", slots: { default: "action" }, width: 400, editRender: { enabled: true } },
+    { title: "操作", slots: { default: "action" }, width: 400 },
   ],
   treeConfig: {
     transform: true,
@@ -107,7 +118,7 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     checkRowKeys: [10001, 10002],
     highlight: true,
   },
-  data: data2.value,
+  data: data,
   editConfig: {
     trigger: "click",
     mode: "cell",
@@ -204,8 +215,24 @@ const insertRowEnd = async (num: number) => {
       parentId: null,
       date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
     };
-    const { row: newRow } = await $table.insertAt(record, -1);
+    await $table.insertAt(record, -1);
   }
+};
+
+const insertRowEndBySource = async (num: number) => {
+  new Promise((resolve) => {
+    const date = new Date();
+    for (let i = 0; i < num; i++) {
+      const record = {
+        name: `新数据 ${i + 1}`,
+        id: Date.now(),
+        parentId: null,
+        date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
+      };
+      data.push(record);
+    }
+    resolve(true);
+  });
 };
 
 const insertRow = async (currRow: any, locat: string) => {
@@ -253,6 +280,38 @@ const insertRow = async (currRow: any, locat: string) => {
   }
 };
 
+const insertRowBySource = async (currRow: any, locat: "before" | "after" | "last", amout?: number) => {
+  if (!amout) amout = 1;
+  const date = new Date();
+  const record = {
+    name: "新数据",
+    id: Date.now(),
+    parentId: currRow.parentId, // 需要指定父节点，自动插入该节点中
+    date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
+  };
+  const index = data.findIndex((item) => item.id === currRow.id);
+  if (locat === "before") {
+    for (let i = 0; i < amout; i++) {
+      data.splice(index, 0, record);
+    }
+  } else if (locat === "after") {
+    for (let i = 0; i < amout; i++) {
+      data.splice(index + 1, 0, record);
+    }
+  } else if (locat === "last") {
+    for (let i = 0; i < amout; i++) {
+      data.push(record);
+    }
+  }
+};
+
+const modifyCell = async (rowId: number, columnField: "name" | "type" | "size", value: any) => {
+  const row = data.find((item) => item.id === rowId);
+  if (row) {
+    row[columnField] = value;
+  }
+};
+
 // 删除行
 const removeRow = async (row: any) => {
   const $table = xGrid.value!;
@@ -272,21 +331,30 @@ const removeRow = async (row: any) => {
 //   }
 // }
 
-/* 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题 */
+// 获取当前选中的单元格
 const selectCurrent = reactive({
   selectRow: null as any,
   selectColumn: null as any,
 });
+const cellClickEvent: VxeTableEvents.CellClick = ({ row, column }) => {
+  selectCurrent.selectRow = row;
+  selectCurrent.selectColumn = column;
+};
+
+/* 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题 */
 const cellClassName: VxeTablePropTypes.CellClassName = ({ row, column }) => {
   if (row === selectCurrent.selectRow && column === selectCurrent.selectColumn) {
-    logger.debug("cellClassName", row, column);
     return "no-indent";
   }
   return null;
 };
-const cellClickEvent: VxeTableEvents.CellClick = ({ row, column }) => {
-  selectCurrent.selectRow = row;
-  selectCurrent.selectColumn = column;
+
+// 选中行边框设置
+const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
+  if (row === selectCurrent.selectRow) {
+    return "row-current";
+  }
+  return null;
 };
 </script>
 
@@ -299,6 +367,8 @@ const cellClickEvent: VxeTableEvents.CellClick = ({ row, column }) => {
     <vxe-button @click="clickEvent1">读取文件</vxe-button>
     <vxe-button @click="printEvent1">打印</vxe-button>
     <vxe-button @click="insertRowEnd(10)">在尾部插入空白行</vxe-button>
+    <vxe-button @click="insertRowEndBySource(10)">在尾部插入数据By Source</vxe-button>
+    <vxe-button @click="modifyCell(10050, 'name', Math.random())">修改数据</vxe-button>
   </div>
   <div>
     <i class="vxe-icon-alipay roll"></i>
@@ -325,17 +395,31 @@ const cellClickEvent: VxeTableEvents.CellClick = ({ row, column }) => {
       <vxe-button type="text" icon="vxe-icon-funnel" class="tool-btn" @click=""></vxe-button>
     </template>
   </vxe-toolbar>
-  <vxe-grid ref="xGrid" :cell-class-name="cellClassName" @cell-click="cellClickEvent" v-bind="gridOptions">
+  <vxe-grid
+    ref="xGrid"
+    :cell-class-name="cellClassName"
+    :row-class-name="rowClassName"
+    @cell-click="cellClickEvent"
+    v-bind="gridOptions"
+  >
     <template #text="{ row }">
       <span>{{ row.name }}</span>
     </template>
     <template #text_edit="{ row }">
       <!-- <vxe-input v-model="row.name"></vxe-input> -->
       <!-- 解决 vxe-inpu 无法 v-mode.lazy 的问题-->
-      <!-- <input class="vxe-input--inner" v-model.lazy="row.name" /> -->
+      <input
+        class="vxe-input--inner"
+        style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
+        v-model.lazy="row.name"
+      />
+    </template>
+    <template #ml_text_edit="{ row }">
+      <!-- <vxe-input v-model="row.name"></vxe-input> -->
+      <!-- 解决 vxe-input 无法 v-mode.lazy 的问题-->
       <textarea
         class="vxe-input--inner"
-        style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0;"
+        style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
         :cols="5"
         :spellcheck="false"
         @keyup.enter.preventDefault()
@@ -345,11 +429,25 @@ const cellClickEvent: VxeTableEvents.CellClick = ({ row, column }) => {
         v-model.lazy="row.name"
       ></textarea>
     </template>
+    <template #text_edit2="{ row, column }">
+      <!-- <vxe-input v-model="row.name"></vxe-input> -->
+      <!-- 解决 vxe-inpu 无法 v-mode.lazy 的问题-->
+      <input
+        class="vxe-input--inner"
+        style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
+        :value="row[column.property]"
+        @change="modifyCell(row.id, column.property, ($event.target as HTMLInputElement).value)"
+      />
+    </template>
     <template #action="{ row }">
-      <vxe-button type="text" status="primary" @click="insertRow(row, 'current')">插入节点</vxe-button>
+      <!-- <vxe-button type="text" status="primary" @click="insertRow(row, 'current')">插入节点</vxe-button>
       <vxe-button type="text" status="primary" @click="insertRow(row, 'top')">顶部插入节点</vxe-button>
       <vxe-button type="text" status="primary" @click="insertRow(row, 'bottom')">尾部插入子节点</vxe-button>
-      <vxe-button type="text" status="primary" @click="removeRow(row)">删除节点</vxe-button>
+      <vxe-button type="text" status="primary" @click="removeRow(row)">删除节点</vxe-button> -->
+      <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'before')">上一行插入</vxe-button>
+      <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'after')">下一行插入</vxe-button>
+      <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'last')">最后一行插入</vxe-button>
+      <!-- <vxe-button type="text" status="primary" @click="insertRowBySource(row)">删除节点</vxe-button> -->
     </template>
   </vxe-grid>
 </template>
@@ -363,13 +461,23 @@ const cellClickEvent: VxeTableEvents.CellClick = ({ row, column }) => {
 
 /* 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题 */
 .vxe-table .vxe-body--column.no-indent .vxe-cell--tree-node {
-  padding-left: 0!important;
+  padding-left: 0 !important;
 }
 .vxe-table .vxe-body--column.no-indent .vxe-tree-cell {
-  padding-left: 0!important;
+  padding-left: 0 !important;
 }
 .vxe-table .vxe-body--column.no-indent .vxe-tree--btn-wrapper {
   display: none;
 }
 
+/* 选中行边框显示 */
+.vxe-table .vxe-body--row.row-current {
+  outline: 1px solid rgba(0, 0, 0, 0.5);
+  outline-offset: 2px;
+}
+
+/* 选中单元格边框显示 */
+.vxe-table .vxe-body--column.no-indent {
+  outline: 3px solid #409eff;
+}
 </style>

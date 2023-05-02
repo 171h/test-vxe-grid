@@ -29,6 +29,7 @@ import { Logger } from "@171h/log";
 
 const logger = new Logger("test.vue");
 
+// 数据源===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 interface RowVO {
   id: number;
   parentId: number | null;
@@ -59,21 +60,6 @@ const data = reactive<RowVO[]>([
   { id: 24577, parentId: 24555, name: "Test7", type: "js", size: 1024, date: "2021-06-01" },
 ]);
 
-const demo1 = reactive({
-  value400: "",
-  value407: "",
-  value408: "2020-10-01",
-  value409: "2020-10-01",
-  value800: "",
-  value801: "",
-  value802: "",
-  value803: "",
-  value804: "",
-  value805: "",
-});
-
-// const data2 = ref(data);
-
 // 工具栏绑定===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 const xGrid = ref<VxeTableInstance>();
 const xToolbar = ref<VxeToolbarInstance>();
@@ -85,12 +71,13 @@ nextTick(() => {
   }
 });
 
-// ===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>> gridOptions
+// gridOptions===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>>
 const gridOptions = reactive<VxeGridProps<RowVO>>({
   border: true,
   columns: [
     { type: "checkbox", width: 50, showOverflow: true, align: "center" },
-    { type: "seq", width: 100 },
+    { title: '', align:'left', width:40, slots: {default:'index'} },
+    { type: "seq", title: "WBS", width: 100 },
     { field: "name", title: "Name", slots: { edit: "text_edit" }, treeNode: true, editRender: { enabled: true } },
     { field: "type", title: "Type", slots: { edit: "text_edit2" }, showOverflow: true, editRender: { enabled: true } },
     {
@@ -103,6 +90,8 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     { field: "date", title: "Date", slots: { edit: "text_edit" }, showOverflow: true, editRender: { enabled: true } },
     { title: "操作", slots: { default: "action" }, width: 400 },
   ],
+  keepSource: true,
+  showOverflow: true,
   treeConfig: {
     transform: true,
     rowField: "id",
@@ -223,9 +212,10 @@ const insertRowEndBySource = async (num: number) => {
   new Promise((resolve) => {
     const date = new Date();
     for (let i = 0; i < num; i++) {
+      const id = data[data.length - 1].id + 1;
       const record = {
         name: `新数据 ${i + 1}`,
-        id: Date.now(),
+        id: id,
         parentId: null,
         date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
       };
@@ -331,19 +321,6 @@ const removeRow = async (...rowId: number[]) => {
   });
 };
 
-// 禁用 enter
-// function checkEnter(e: KeyboardEvent) {
-//   var et = e || window.event;
-//   var keycode = et.charCode || et.keyCode;
-//   if (keycode == 13) {
-//     if (window.event) {
-//       window.event.returnValue = false;
-//     } else {
-//       e.preventDefault(); //for firefox
-//     }
-//   }
-// }
-
 // 获取当前选中的单元格
 const selectCurrent = reactive({
   selectRow: null as any,
@@ -376,97 +353,98 @@ const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
 
 <template>
   <div>
-    <h1>Test</h1>
-    <!-- <vxe-button @click="add">add</vxe-button>
+    <div class="h-38">
+      <h1>Test</h1>
+      <!-- <vxe-button @click="add">add</vxe-button>
     <vxe-button @click="remove">remove</vxe-button>
     <vxe-button @click="modify(10001)">modify</vxe-button> -->
-    <vxe-button @click="clickEvent1">读取文件</vxe-button>
-    <vxe-button @click="printEvent1">打印</vxe-button>
-    <vxe-button @click="insertRowEnd(10)">在尾部插入空白行</vxe-button>
-    <vxe-button @click="insertRowEndBySource(10)">在尾部插入数据By Source</vxe-button>
-    <vxe-button @click="modifyCell(10050, 'name', Math.random())">修改数据</vxe-button>
-    <vxe-button @click="removeRow(10050)">删除单行数据</vxe-button>
-    <vxe-button @click="removeRow(10050, 24300, 20045, 10053, 24577, 24566, 24555)">删除多行数据</vxe-button>
-  </div>
-  <div>
-    <i class="vxe-icon-alipay roll"></i>
-  </div>
-  <div>
-    <vxe-input v-model="demo1.value800" placeholder="日期多选" type="date" clearable multiple></vxe-input>
-    <vxe-input v-model="demo1.value805" placeholder="日期和时间多选" type="datetime" clearable multiple></vxe-input>
-  </div>
-  <vxe-toolbar ref="xToolbar" custom>
-    <template #buttons>
-      <vxe-button content="自定义模板"></vxe-button>
-      <vxe-button content="按钮2"></vxe-button>
-      <vxe-button content="按钮3"></vxe-button>
-      <vxe-button content="下拉按钮">
-        <template #dropdowns>
-          <vxe-button content="按钮1"></vxe-button>
+      <vxe-button @click="clickEvent1">读取文件</vxe-button>
+      <vxe-button @click="printEvent1">打印</vxe-button>
+      <vxe-button @click="insertRowEnd(10)">在尾部插入空白行</vxe-button>
+      <vxe-button @click="insertRowEndBySource(10)">在尾部插入数据By Source</vxe-button>
+      <vxe-button @click="modifyCell(10050, 'name', Math.random())">修改数据</vxe-button>
+      <vxe-button @click="removeRow(10050)">删除单行数据</vxe-button>
+      <vxe-button @click="removeRow(10050, 24300, 20045, 10053, 24577, 24566, 24555)">删除多行数据</vxe-button>
+      <vxe-toolbar ref="xToolbar" custom>
+        <template #buttons>
+          <vxe-button content="自定义模板"></vxe-button>
           <vxe-button content="按钮2"></vxe-button>
           <vxe-button content="按钮3"></vxe-button>
+          <vxe-button content="下拉按钮">
+            <template #dropdowns>
+              <vxe-button content="按钮1"></vxe-button>
+              <vxe-button content="按钮2"></vxe-button>
+              <vxe-button content="按钮3"></vxe-button>
+            </template>
+          </vxe-button>
         </template>
-      </vxe-button>
-    </template>
-    <template #tools>
-      <vxe-button type="text" icon="vxe-icon-question-circle-fill" class="tool-btn"></vxe-button>
-      <vxe-button type="text" icon="vxe-icon-funnel" class="tool-btn" @click=""></vxe-button>
-    </template>
-  </vxe-toolbar>
-  <vxe-grid
-    ref="xGrid"
-    :cell-class-name="cellClassName"
-    :row-class-name="rowClassName"
-    @cell-click="cellClickEvent"
-    v-bind="gridOptions"
-  >
-    <template #text="{ row }">
-      <span>{{ row.name }}</span>
-    </template>
-    <template #text_edit="{ row }">
-      <!-- <vxe-input v-model="row.name"></vxe-input> -->
-      <!-- 解决 vxe-inpu 无法 v-mode.lazy 的问题-->
-      <input
-        class="vxe-input--inner"
-        style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
-        v-model.lazy="row.name"
-      />
-    </template>
-    <template #ml_text_edit="{ row }">
-      <!-- <vxe-input v-model="row.name"></vxe-input> -->
-      <!-- 解决 vxe-input 无法 v-mode.lazy 的问题-->
-      <textarea
-        class="vxe-input--inner"
-        style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
-        :cols="5"
-        :spellcheck="false"
-        @keyup.enter.preventDefault()
-        @keypress.enter.preventDefault()
-        @keydown.enter.preventDefault()
-        wrap="hard"
-        v-model.lazy="row.name"
-      ></textarea>
-    </template>
-    <template #text_edit2="{ row, column }">
-      <!-- 实现数据流从数据源到表格的单项传递:修改单元格数据 -->
-      <input
-        class="vxe-input--inner"
-        style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
-        :value="row[column.property]"
-        @change="modifyCell(row.id, column.property, ($event.target as HTMLInputElement).value)"
-      />
-    </template>
-    <template #action="{ row }">
-      <!-- <vxe-button type="text" status="primary" @click="insertRow(row, 'current')">插入节点</vxe-button>
-      <vxe-button type="text" status="primary" @click="insertRow(row, 'top')">顶部插入节点</vxe-button>
-      <vxe-button type="text" status="primary" @click="insertRow(row, 'bottom')">尾部插入子节点</vxe-button>
-      <vxe-button type="text" status="primary" @click="removeRow(row)">删除节点</vxe-button> -->
-      <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'before')">上一行插入</vxe-button>
-      <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'after')">下一行插入</vxe-button>
-      <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'last')">最后一行插入</vxe-button>
-      <!-- <vxe-button type="text" status="primary" @click="insertRowBySource(row)">删除节点</vxe-button> -->
-    </template>
-  </vxe-grid>
+        <template #tools>
+          <vxe-button type="text" icon="vxe-icon-question-circle-fill" class="tool-btn"></vxe-button>
+          <vxe-button type="text" icon="vxe-icon-funnel" class="tool-btn" @click=""></vxe-button>
+        </template>
+      </vxe-toolbar>
+    </div>
+    <div class="fixed h-100% w-100%">
+      <vxe-grid
+        ref="xGrid"
+        height="100%"
+        :cell-class-name="cellClassName"
+        :row-class-name="rowClassName"
+        @cell-click="cellClickEvent"
+        v-bind="gridOptions"
+      >
+        <template #text="{ row }">
+          <span>{{ row.name }}</span>
+        </template>
+        <template #text_edit="{ row }">
+          <!-- <vxe-input v-model="row.name"></vxe-input> -->
+          <!-- 解决 vxe-inpu 无法 v-mode.lazy 的问题-->
+          <input
+            class="vxe-input--inner"
+            style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
+            v-model.lazy="row.name"
+          />
+        </template>
+        <template #ml_text_edit="{ row }">
+          <!-- <vxe-input v-model="row.name"></vxe-input> -->
+          <!-- 解决 vxe-input 无法 v-mode.lazy 的问题-->
+          <textarea
+            class="vxe-input--inner"
+            style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
+            :cols="5"
+            :spellcheck="false"
+            @keyup.enter.preventDefault()
+            @keypress.enter.preventDefault()
+            @keydown.enter.preventDefault()
+            wrap="hard"
+            v-model.lazy="row.name"
+          ></textarea>
+        </template>
+        <template #text_edit2="{ row, column }">
+          <!-- 实现数据流从数据源到表格的单项传递:修改单元格数据 -->
+          <input
+            class="vxe-input--inner"
+            style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
+            :value="row[column.property]"
+            @change="modifyCell(row.id, column.property, ($event.target as HTMLInputElement).value)"
+          />
+        </template>
+        <template #action="{ row }">
+          <!-- <vxe-button type="text" status="primary" @click="insertRow(row, 'current')">插入节点</vxe-button>
+          <vxe-button type="text" status="primary" @click="insertRow(row, 'top')">顶部插入节点</vxe-button>
+          <vxe-button type="text" status="primary" @click="insertRow(row, 'bottom')">尾部插入子节点</vxe-button>
+          <vxe-button type="text" status="primary" @click="removeRow(row)">删除节点</vxe-button> -->
+          <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'before')">上一行插入</vxe-button>
+          <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'after')">下一行插入</vxe-button>
+          <vxe-button type="text" status="primary" @click="insertRowBySource(row, 'last')">最后一行插入</vxe-button>
+          <!-- <vxe-button type="text" status="primary" @click="insertRowBySource(row)">删除节点</vxe-button> -->
+        </template>
+        <template #index="{ $rowIndex }">
+          <span>{{ $rowIndex + 1 }}</span>
+        </template>
+      </vxe-grid>
+    </div>
+  </div>
 </template>
 
 <style>

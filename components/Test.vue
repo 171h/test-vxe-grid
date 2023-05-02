@@ -16,15 +16,15 @@ import { Logger } from "@171h/log";
  * 1. 数据的增删改查
  * 2. 数据的底部添加空行
  * 3. 数据的底部空行的滚动加载与删除
- * 4. 编辑渲染器的 v-model.lazy 的使用, 待解决阻止 textarea enter 换行问题 【基本解决】
+ * 4. 编辑渲染器的 v-model.lazy 的使用, 待解决阻止 textarea enter 换行问题【已解决】
  * 5. 数据的扁平化导出功能
  * 6. cell 的上下左右边距过宽的问题【已解决】
  * 7. 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题【已解决】
  * 8. 实现数据流从数据源到表格的单项传递【基本实现】
- * 8.1 insertRowBySource 在任意位置插入行
- * 8.2 insertRowEndBySource 在末尾插入行
- * 8.3 modifyCell 修改单元格数据
- * 8.4 
+ * 8.1 {@link insertRowBySource} 在任意位置插入行
+ * 8.2 {@link insertRowEndBySource} 在末尾插入行
+ * 8.3 {@link modifyCell} 修改单元格数据
+ * 8.4 {@link removeRow} 删除行
  */
 
 const logger = new Logger("test.vue");
@@ -281,41 +281,54 @@ const insertRow = async (currRow: any, locat: string) => {
 };
 
 const insertRowBySource = async (currRow: any, locat: "before" | "after" | "last", amout?: number) => {
-  if (!amout) amout = 1;
-  const date = new Date();
-  const record = {
-    name: "新数据",
-    id: Date.now(),
-    parentId: currRow.parentId, // 需要指定父节点，自动插入该节点中
-    date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
-  };
-  const index = data.findIndex((item) => item.id === currRow.id);
-  if (locat === "before") {
-    for (let i = 0; i < amout; i++) {
-      data.splice(index, 0, record);
+  return new Promise((resolve) => {
+    if (!amout) amout = 1;
+    const date = new Date();
+    const record = {
+      name: "新数据",
+      id: Date.now(),
+      parentId: currRow.parentId, // 需要指定父节点，自动插入该节点中
+      date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
+    };
+    const index = data.findIndex((item) => item.id === currRow.id);
+    if (locat === "before") {
+      for (let i = 0; i < amout; i++) {
+        data.splice(index, 0, record);
+      }
+    } else if (locat === "after") {
+      for (let i = 0; i < amout; i++) {
+        data.splice(index + 1, 0, record);
+      }
+    } else if (locat === "last") {
+      for (let i = 0; i < amout; i++) {
+        data.push(record);
+      }
     }
-  } else if (locat === "after") {
-    for (let i = 0; i < amout; i++) {
-      data.splice(index + 1, 0, record);
-    }
-  } else if (locat === "last") {
-    for (let i = 0; i < amout; i++) {
-      data.push(record);
-    }
-  }
+    resolve(data);
+  });
 };
 
 const modifyCell = async (rowId: number, columnField: "name" | "type" | "size", value: any) => {
-  const row = data.find((item) => item.id === rowId);
-  if (row) {
-    row[columnField] = value;
-  }
+  return new Promise((resolve) => {
+    const row = data.find((item) => item.id === rowId);
+    if (row) {
+      row[columnField] = value;
+    }
+    resolve(row);
+  });
 };
 
 // 删除行
-const removeRow = async (row: any) => {
-  const $table = xGrid.value!;
-  await $table.remove(row);
+const removeRow = async (...rowId: number[]) => {
+  return new Promise((resolve) => {
+    for (let i = 0; i < rowId.length; i++) {
+      const index = data.findIndex((item) => item.id === rowId[i]);
+      if (index !== -1) {
+        data.splice(index, 1);
+      }
+    }
+    resolve(data);
+  });
 };
 
 // 禁用 enter
@@ -336,9 +349,12 @@ const selectCurrent = reactive({
   selectRow: null as any,
   selectColumn: null as any,
 });
-const cellClickEvent: VxeTableEvents.CellClick = ({ row, column }) => {
-  selectCurrent.selectRow = row;
-  selectCurrent.selectColumn = column;
+const cellClickEvent: VxeTableEvents.CellClick = async ({ row, column }) => {
+  new Promise((resolve) => {
+    selectCurrent.selectRow = row;
+    selectCurrent.selectColumn = column;
+    resolve(selectCurrent);
+  });
 };
 
 /* 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题 */
@@ -369,6 +385,8 @@ const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
     <vxe-button @click="insertRowEnd(10)">在尾部插入空白行</vxe-button>
     <vxe-button @click="insertRowEndBySource(10)">在尾部插入数据By Source</vxe-button>
     <vxe-button @click="modifyCell(10050, 'name', Math.random())">修改数据</vxe-button>
+    <vxe-button @click="removeRow(10050)">删除单行数据</vxe-button>
+    <vxe-button @click="removeRow(10050, 24300, 20045, 10053, 24577, 24566, 24555)">删除多行数据</vxe-button>
   </div>
   <div>
     <i class="vxe-icon-alipay roll"></i>
@@ -430,8 +448,7 @@ const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
       ></textarea>
     </template>
     <template #text_edit2="{ row, column }">
-      <!-- <vxe-input v-model="row.name"></vxe-input> -->
-      <!-- 解决 vxe-inpu 无法 v-mode.lazy 的问题-->
+      <!-- 实现数据流从数据源到表格的单项传递:修改单元格数据 -->
       <input
         class="vxe-input--inner"
         style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"

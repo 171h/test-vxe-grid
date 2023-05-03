@@ -7,6 +7,7 @@ import {
   VxeToolbarInstance,
   VxeTablePropTypes,
   VxeTableEvents,
+  VxeGridListeners,
 } from "vxe-table";
 import * as _ from "lodash-es";
 import { Logger } from "@171h/log";
@@ -14,11 +15,11 @@ import Sortable from "sortablejs";
 
 /**
  * 测试功能：
- * 1. 数据的增删改查
- * 2. 数据的底部添加空行
- * 3. 数据的底部空行的滚动加载与删除
+ * 1. 数据的增删改查 【可以实现】
+ * 2. 数据的底部添加空行 【可以实现】
+ * 3. 数据的底部空行的滚动加载与删除【可以实现】
  * 4. 编辑渲染器的 v-model.lazy 的使用, 待解决阻止 textarea enter 换行问题【已解决】
- * 5. 数据的扁平化导出功能
+ * 5. 数据的扁平化导出功能 【可以实现】
  * 6. cell 的上下左右边距过宽的问题【已解决】
  * 7. 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题【已解决】
  * 8. 实现数据流从数据源到表格的单项传递【基本实现】
@@ -347,8 +348,9 @@ const selectCurrent = reactive({
   selectRow: null as any,
   selectColumn: null as any,
 });
-const cellClickEvent: VxeTableEvents.CellClick = async ({ row, column }) => {
+const cellClickEvent: VxeTableEvents.CellClick = async (params) => {
   new Promise((resolve) => {
+    const { row, column } = params;
     selectCurrent.selectRow = row;
     selectCurrent.selectColumn = column;
     const $grid = xGrid.value;
@@ -409,6 +411,64 @@ onUnmounted(() => {
     sortable.destroy();
   }
 });
+
+// 事件注册
+const gridEvents: VxeGridListeners = {
+  headerCellClick (params) {
+    const { column } = params
+    console.log(`表头单元格点击${column.title}`)
+  },
+  headerCellDblclick (params) {
+    const { column } = params
+    console.log(`表头单元格双击${column.title}`)
+  },
+  headerCellMenu (params) {
+    const { column } = params
+    console.log(`表头右键单元格 ${column.title}`)
+  },
+  cellClick (params) {
+    cellClickEvent(params)
+  },
+  cellDblclick (params) {
+    const { column } = params
+    console.log(`单元格双击${column.title}`)
+  },
+  cellMenu (params) {
+    const { row } = params
+    console.log(`单元格右键行 ${row.name}`)
+  },
+  footerCellClick (params) {
+    const { column } = params
+    console.log(`表尾单元格点击${column.title}`)
+  },
+  footerCellDblclick (params) {
+    const { column } = params
+    console.log(`表尾单元格双击${column.title}`)
+  },
+  footerCellMenu (params) {
+    const { column } = params
+    console.log(`表尾右键单元格 ${column.title}`)
+  },
+  checkboxChange (params) {
+    console.log(`复选框切换 ${params.checked}`)
+  },
+  checkboxAll (params) {
+    console.log(`复选框全选切换 ${params.checked}`)
+  },
+  scroll (params) {
+    const bottomHeight = params.scrollHeight - params.scrollTop - params.bodyHeight
+    logger.info(gridEvents, 'scroll', bottomHeight)
+
+    // 滚动到底部时，加载更多数据
+
+  },
+  zoom (params) {
+    console.log(`表格全屏 type=${params.type}`)
+  },
+  custom (params) {
+    console.log(`表格自定义列表 type=${params.type}`)
+  }
+}
 </script>
 
 <template>
@@ -450,8 +510,8 @@ onUnmounted(() => {
         height="100%"
         :cell-class-name="cellClassName"
         :row-class-name="rowClassName"
-        @cell-click="cellClickEvent"
         v-bind="gridOptions"
+        v-on="gridEvents"
       >
         <template #text_show_change="{ row }">
           <!-- <span :tabindex="1" @change="cellChange">{{ row.name }}</span> -->

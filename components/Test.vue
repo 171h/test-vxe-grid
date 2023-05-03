@@ -25,6 +25,7 @@ import { Logger } from "@171h/log";
  * 8.2 {@link insertRowEndBySource} 在末尾插入行
  * 8.3 {@link modifyCell} 修改单元格数据
  * 8.4 {@link removeRow} 删除行
+ * 9. 单元格数值变动后，改变其背景色
  */
 
 const logger = new Logger("test.vue");
@@ -90,7 +91,7 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     { field: "date", title: "Date", slots: { edit: "text_edit" }, showOverflow: true, editRender: { enabled: true } },
     { title: "操作", slots: { default: "action" }, width: 400 },
   ],
-  keepSource: true,
+  keepSource: false,
   showOverflow: true,
   treeConfig: {
     transform: true,
@@ -113,6 +114,19 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     mode: "cell",
     showStatus: true,
   },
+  mouseConfig: {
+    selected: true,
+  },
+  keyboardConfig: {
+    isArrow: true,
+    isDel: true,
+    isEnter: true,
+    isTab: true,
+    isEdit: true,
+    isEsc: true,
+    isClip: true,
+    isChecked: true,
+  }
 });
 
 // 读取文件===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -337,7 +351,8 @@ const cellClickEvent: VxeTableEvents.CellClick = async ({ row, column }) => {
 /* 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题 */
 const cellClassName: VxeTablePropTypes.CellClassName = ({ row, column }) => {
   if (row === selectCurrent.selectRow && column === selectCurrent.selectColumn) {
-    return "no-indent";
+    // 此处必须把 col--selected 返回，否则默认的单元格选中功能的边框将会失效
+    return "no-indent col--selected";
   }
   return null;
 };
@@ -468,11 +483,7 @@ const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
 /* 选中行边框显示 */
 .vxe-table .vxe-body--row.row-current {
   outline: 1px solid rgba(0, 0, 0, 0.5);
-  outline-offset: 2px;
+  outline-offset: -3px;
 }
 
-/* 选中单元格边框显示 */
-.vxe-table .vxe-body--column.no-indent {
-  outline: 3px solid #409eff;
-}
 </style>

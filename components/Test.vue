@@ -361,13 +361,16 @@ const cellClickEvent: VxeTableEvents.CellClick = async ({ row, column }) => {
 
 /* 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题 */
 const cellClassName: VxeTablePropTypes.CellClassName = ({ row, column }) => {
+  const cls = []
   if (row === selectCurrent.selectRow && column === selectCurrent.selectColumn) {
     // 此处必须把 col--selected 返回，否则默认的单元格选中功能的边框将会失效
-    return "no-indent col--selected has-checkbox";
-  } else {
+    cls.push(...['no-indent', 'col--selected'])
+  } 
+  if (column.type === 'checkbox') {
     // 返回 has-checkbox，解决只有一个 checkbox 时，checkbox 无法上下居中的问题
-    return 'has-checkbox'
+    cls.push('has-checkbox')
   }
+  return cls.join(' ')
 };
 
 // 选中行边框设置

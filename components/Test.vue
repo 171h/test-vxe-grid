@@ -10,6 +10,7 @@ import {
 } from "vxe-table";
 import * as _ from "lodash-es";
 import { Logger } from "@171h/log";
+import Sortable from "sortablejs";
 
 /**
  * 测试功能：
@@ -26,6 +27,8 @@ import { Logger } from "@171h/log";
  * 8.3 {@link modifyCell} 修改单元格数据
  * 8.4 {@link removeRow} 删除行
  * 9. 单元格数值变动后，改变其背景色
+ * 10. tree 树形表格键盘导航问题【已解决】
+ * 11. 行、列拖拽【可以实现】{@see https://vxetable.cn/other4/#/table/other/sortableRow, @see https://vxetable.cn/other4/#/table/other/sortableColumn}
  */
 
 const logger = new Logger("test.vue");
@@ -76,8 +79,8 @@ nextTick(() => {
 const gridOptions = reactive<VxeGridProps<RowVO>>({
   border: true,
   columns: [
+    { title: "", align: "left", width: 40, slots: { default: "index" } },
     { type: "checkbox", width: 50, showOverflow: true, align: "center" },
-    { title: '', align:'left', width:40, slots: {default:'index'} },
     { type: "seq", title: "WBS", width: 100 },
     { field: "name", title: "Name", slots: { edit: "text_edit" }, treeNode: true, editRender: { enabled: true } },
     { field: "type", title: "Type", slots: { edit: "text_edit2" }, showOverflow: true, editRender: { enabled: true } },
@@ -126,7 +129,7 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     isEsc: true,
     isClip: true,
     isChecked: true,
-  }
+  },
 });
 
 // 读取文件===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -344,6 +347,10 @@ const cellClickEvent: VxeTableEvents.CellClick = async ({ row, column }) => {
   new Promise((resolve) => {
     selectCurrent.selectRow = row;
     selectCurrent.selectColumn = column;
+    const $grid = xGrid.value;
+    logger.debug(cellClickEvent, "getRowIndex", $grid?.getRowIndex(row));
+    logger.debug(cellClickEvent, "getVTRowIndex", $grid?.getVTRowIndex(row));
+    logger.debug(cellClickEvent, "getVMRowIndex", $grid?.getVMRowIndex(row));
     resolve(selectCurrent);
   });
 };
@@ -364,6 +371,35 @@ const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
   }
   return null;
 };
+
+// 行拖拽
+let sortable: Sortable;
+const rowDrop = () => {
+  const $grid = xGrid.value;
+  sortable = Sortable.create($grid?.$el.querySelector(".body--wrapper>.vxe-table--body tbody"), {
+    handle: ".drag-btn",
+    onEnd: (sortableEvent) => {
+      const newIndex = sortableEvent.newIndex as number;
+      const oldIndex = sortableEvent.oldIndex as number;
+      const currRow = data.splice(oldIndex, 1)[0];
+      data.splice(newIndex, 0, currRow);
+    },
+  });
+};
+let initTime: NodeJS.Timeout;
+nextTick(() => {
+  // 加载完成之后在绑定拖动事件
+  initTime = setTimeout(() => {
+    rowDrop();
+  }, 500);
+});
+
+onUnmounted(() => {
+  clearTimeout(initTime);
+  if (sortable) {
+    sortable.destroy();
+  }
+});
 </script>
 
 <template>
@@ -455,7 +491,7 @@ const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
           <!-- <vxe-button type="text" status="primary" @click="insertRowBySource(row)">删除节点</vxe-button> -->
         </template>
         <template #index="{ $rowIndex }">
-          <span>{{ $rowIndex + 1 }}</span>
+          <div class="drag-btn h-100%!">{{ $rowIndex + 1 }}</div>
         </template>
       </vxe-grid>
     </div>
@@ -486,4 +522,13 @@ const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
   outline-offset: -3px;
 }
 
+/* 拖拽鼠标样式 */
+.vxe-table .drag-btn {
+  cursor: move;
+  font-size: 12px;
+}
+.vxe-table .vxe-body--row.sortable-ghost,
+.vxe-table .vxe-body--row.sortable-chosen {
+  background-color: #dfecfb;
+}
 </style>

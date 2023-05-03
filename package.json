@@ -11,12 +11,14 @@
   "devDependencies": {
     "@types/lodash-es": "^4.17.7",
     "@types/node": "^18",
+    "@types/sortablejs": "^1.15.1",
     "@unocss/nuxt": "^0.51.8",
     "nuxt": "^3.4.3"
   },
   "dependencies": {
     "@171h/log": "^2.2.0",
     "lodash-es": "^4.17.21",
+    "sortablejs": "^1.15.0",
     "vxe-table": "^4.3.12"
   }
 }

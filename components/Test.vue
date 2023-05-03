@@ -26,7 +26,7 @@ import Sortable from "sortablejs";
  * 8.2 {@link insertRowEndBySource} 在末尾插入行
  * 8.3 {@link modifyCell} 修改单元格数据
  * 8.4 {@link removeRow} 删除行
- * 9. 单元格数值变动后，改变其背景色
+ * 9. 单元格数值变动后，改变其背景色【已解决】{@link ShowChangeCell }
  * 10. tree 树形表格键盘导航问题【已解决】
  * 11. 行、列拖拽【可以实现】{@see https://vxetable.cn/other4/#/table/other/sortableRow, @see https://vxetable.cn/other4/#/table/other/sortableColumn}
  */
@@ -63,6 +63,7 @@ const data = reactive<RowVO[]>([
   { id: 24566, parentId: 24555, name: "Test7", type: "js", size: 1024, date: "2021-06-01" },
   { id: 24577, parentId: 24555, name: "Test7", type: "js", size: 1024, date: "2021-06-01" },
 ]);
+const version = ref<number>(0)
 
 // 工具栏绑定===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 const xGrid = ref<VxeTableInstance>();
@@ -80,21 +81,20 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
   border: true,
   columns: [
     { title: "", align: "left", width: 40, slots: { default: "index" } },
-    { type: "checkbox", width: 50, showOverflow: true, align: "center" },
-    { type: "seq", title: "WBS", width: 100 },
-    { field: "name", title: "Name", slots: { edit: "text_edit" }, treeNode: true, editRender: { enabled: true } },
-    { field: "type", title: "Type", slots: { edit: "text_edit2" }, showOverflow: true, editRender: { enabled: true } },
+    { type: "checkbox", width: 50, align: "center"},
+    { type: "seq", title: "WBS", width: 100, slots: { default: "text" }},
+    { field: "name", title: "Name", slots: { default:'text_show_change', edit: "text_edit2" }, treeNode: true, editRender: { enabled: true } },
+    { field: "type", title: "Type", slots: { default:'text_show_change', edit: "text_edit2" }, showOverflow: true, editRender: { enabled: true } },
     {
       field: "size",
       title: "Size",
-      slots: { edit: "text_edit2" },
+      slots: { default:'text_show_change', edit: "text_edit2" },
       showHeaderOverflow: true,
       editRender: { enabled: true },
     },
-    { field: "date", title: "Date", slots: { edit: "text_edit" }, showOverflow: true, editRender: { enabled: true } },
+    { field: "date", title: "Date", slots: { default:'text_show_change', edit: "text_edit2" }, showOverflow: true, editRender: { enabled: true } },
     { title: "操作", slots: { default: "action" }, width: 400 },
   ],
-  keepSource: false,
   showOverflow: true,
   treeConfig: {
     transform: true,
@@ -238,6 +238,7 @@ const insertRowEndBySource = async (num: number) => {
       };
       data.push(record);
     }
+    version.value++;
     resolve(true);
   });
 };
@@ -311,6 +312,7 @@ const insertRowBySource = async (currRow: any, locat: "before" | "after" | "last
         data.push(record);
       }
     }
+    version.value++;
     resolve(data);
   });
 };
@@ -321,6 +323,8 @@ const modifyCell = async (rowId: number, columnField: "name" | "type" | "size", 
     if (row) {
       row[columnField] = value;
     }
+    version.value++;
+    logger.debug(modifyCell, 'version.value', version.value)
     resolve(row);
   });
 };
@@ -359,9 +363,11 @@ const cellClickEvent: VxeTableEvents.CellClick = async ({ row, column }) => {
 const cellClassName: VxeTablePropTypes.CellClassName = ({ row, column }) => {
   if (row === selectCurrent.selectRow && column === selectCurrent.selectColumn) {
     // 此处必须把 col--selected 返回，否则默认的单元格选中功能的边框将会失效
-    return "no-indent col--selected";
+    return "no-indent col--selected has-checkbox";
+  } else {
+    // 返回 has-checkbox，解决只有一个 checkbox 时，checkbox 无法上下居中的问题
+    return 'has-checkbox'
   }
-  return null;
 };
 
 // 选中行边框设置
@@ -444,14 +450,17 @@ onUnmounted(() => {
         @cell-click="cellClickEvent"
         v-bind="gridOptions"
       >
-        <template #text="{ row }">
-          <span>{{ row.name }}</span>
+        <template #text_show_change="{ row }">
+          <!-- <span :tabindex="1" @change="cellChange">{{ row.name }}</span> -->
+          <show-change-cell :value="row.name" :version="version"/>
         </template>
         <template #text_edit="{ row }">
           <!-- <vxe-input v-model="row.name"></vxe-input> -->
           <!-- 解决 vxe-inpu 无法 v-mode.lazy 的问题-->
           <input
             class="vxe-input--inner"
+            :spellcheck="false"
+            autocomplete="hidden"
             style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
             v-model.lazy="row.name"
           />
@@ -464,6 +473,7 @@ onUnmounted(() => {
             style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
             :cols="5"
             :spellcheck="false"
+            autocomplete="hidden"
             @keyup.enter.preventDefault()
             @keypress.enter.preventDefault()
             @keydown.enter.preventDefault()
@@ -476,6 +486,8 @@ onUnmounted(() => {
           <input
             class="vxe-input--inner"
             style="overflow: visible; resize: none; border-radius: 0; border: none; padding: 0; background: transparent"
+            :spellcheck="false"
+            autocomplete="hidden"
             :value="row[column.property]"
             @change="modifyCell(row.id, column.property, ($event.target as HTMLInputElement).value)"
           />
@@ -491,7 +503,13 @@ onUnmounted(() => {
           <!-- <vxe-button type="text" status="primary" @click="insertRowBySource(row)">删除节点</vxe-button> -->
         </template>
         <template #index="{ $rowIndex }">
-          <div class="drag-btn h-100%!">{{ $rowIndex + 1 }}</div>
+          <txt-cell class="drag-btn" :value="$rowIndex + 1" />
+        </template>
+        <template #text="{ $rowIndex }">
+          <txt-cell :value="$rowIndex + 1" />
+        </template>
+        <template #checkbox="{ $rowIndex }">
+          <txt-cell />
         </template>
       </vxe-grid>
     </div>
@@ -500,9 +518,31 @@ onUnmounted(() => {
 
 <style>
 /* 默认单元格设置 */
-/* 解决 cell 的上下左右边距过宽的问题 */
 .vxe-table--render-default .vxe-cell {
+  /* 解决 cell 的上下左右边距过宽的问题 */
   padding: 0 0;
+  /* 解决 td 内元素无法撑满 td 的问题 */
+  height: 100%;
+}
+
+/* 解决只有一个 checkbox 时，checkbox 无法上下居中的问题 */
+.vxe-table--render-default .vxe-body--column.has-checkbox .vxe-cell {
+  height: auto;
+}
+
+.vxe-table--render-default .vxe-cell .vxe-cell--tree-node {
+  /* 解决 td 内元素无法撑满 td 的问题 */
+  height: 100%;
+}
+
+.vxe-table--render-default .vxe-cell .vxe-cell--tree-node .vxe-tree-cell {
+  /* 解决 td 内元素无法撑满 td 的问题 */
+  height: 100%;
+}
+
+/* 解决修改数据/新增行的单元格左上角“三角”标识 */
+.vxe-table .vxe-body--column::before {
+  display: none;
 }
 
 /* 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题 */

@@ -16,8 +16,8 @@ watch([() => props.value, () => props.version], ([value, version], [preValue, pr
   else 
     isChange.value = false
   
-  logger.debug('value, version, preValue, preVersion', {value, version, preValue, preVersion})
-  logger.debug('isChange', isChange.value)
+  // logger.debug('value, version, preValue, preVersion', {value, version, preValue, preVersion})
+  // logger.debug('isChange', isChange.value)
 })
 </script>
 

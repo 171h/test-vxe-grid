@@ -77,6 +77,17 @@ nextTick(() => {
   }
 });
 
+// const status = computed(() => {
+//   const $xGrid = xGrid.value
+//   const select = $xGrid?.getSelectedCell()
+//   return select
+// })   
+
+// watchEffect(() => {
+//   logger.debug('watch', 'status', status)
+// })
+
+
 // gridOptions===========================================>>>>>>>>>>>>>>>>>>>>>>>>>>>
 const gridOptions = reactive<VxeGridProps<RowVO>>({
   border: true,
@@ -84,7 +95,7 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     { title: "", align: "left", width: 40, slots: { default: "index" } },
     { type: "checkbox", width: 50, align: "center"},
     { type: "seq", title: "WBS", width: 100, slots: { default: "text" }},
-    { field: "name", title: "Name", slots: { default:'text_show_change', edit: "text_edit2" }, treeNode: true, editRender: { enabled: true } },
+    { field: "name", title: "Name", slots: { default:'text', edit: "text_edit2" }, treeNode: true, editRender: { enabled: true } },
     { field: "type", title: "Type", slots: { default:'text_show_change', edit: "text_edit2" }, showOverflow: true, editRender: { enabled: true } },
     {
       field: "size",
@@ -107,6 +118,7 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
   rowConfig: {
     keyField: "id",
     isHover: true,
+    isCurrent: true,
   },
   checkboxConfig: {
     checkRowKeys: [10001, 10002],
@@ -130,6 +142,7 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     isEsc: true,
     isClip: true,
     isChecked: true,
+    isShift: true, // 开启 Shift 键批量选择
   },
 });
 
@@ -344,27 +357,34 @@ const removeRow = async (...rowId: number[]) => {
 };
 
 // 获取当前选中的单元格
-const selectCurrent = reactive({
-  selectRow: null as any,
-  selectColumn: null as any,
-});
-const cellClickEvent: VxeTableEvents.CellClick = async (params) => {
-  new Promise((resolve) => {
-    const { row, column } = params;
-    selectCurrent.selectRow = row;
-    selectCurrent.selectColumn = column;
-    const $grid = xGrid.value;
-    logger.debug(cellClickEvent, "getRowIndex", $grid?.getRowIndex(row));
-    logger.debug(cellClickEvent, "getVTRowIndex", $grid?.getVTRowIndex(row));
-    logger.debug(cellClickEvent, "getVMRowIndex", $grid?.getVMRowIndex(row));
-    resolve(selectCurrent);
-  });
-};
+// const selectCurrent = reactive({
+//   selectRow: null as any,
+//   selectColumn: null as any,
+// });
+// const cellClickEvent: VxeTableEvents.CellClick = async (params) => {
+//   new Promise((resolve) => {
+//     const { row, column } = params;
+//     selectCurrent.selectRow = row;
+//     selectCurrent.selectColumn = column;
+//     const $grid = xGrid.value;
+//     logger.debug(cellClickEvent, "getRowIndex", $grid?.getRowIndex(row));
+//     logger.debug(cellClickEvent, "getVTRowIndex", $grid?.getVTRowIndex(row));
+//     logger.debug(cellClickEvent, "getVMRowIndex", $grid?.getVMRowIndex(row));
+//     resolve(selectCurrent);
+//   });
+// };
 
 /* 解决 tree 树形表格的单元格 edit 状态无法撑满 td 的问题 */
 const cellClassName: VxeTablePropTypes.CellClassName = ({ row, column }) => {
   const cls = []
-  if (row === selectCurrent.selectRow && column === selectCurrent.selectColumn) {
+  const select = xGrid.value?.getSelectedCell()
+  const active = xGrid.value?.getEditRecord()
+  const current = xGrid.value?.getCurrentRecord()
+  const isCell = (row === select?.row && column === select?.column) || (row === current?.row && column === current?.column)
+  if (isCell) {
+    logger.debug('cellClassName', {isCell,select,active,current})
+  }
+  if (isCell) {
     // 此处必须把 col--selected 返回，否则默认的单元格选中功能的边框将会失效
     cls.push(...['no-indent', 'col--selected'])
   } 
@@ -377,7 +397,15 @@ const cellClassName: VxeTablePropTypes.CellClassName = ({ row, column }) => {
 
 // 选中行边框设置
 const rowClassName: VxeTablePropTypes.RowClassName = ({ row }) => {
-  if (row === selectCurrent.selectRow) {
+  const select = xGrid.value?.getSelectedCell()
+  const active = xGrid.value?.getEditRecord()
+  const current = xGrid.value?.getCurrentRecord()
+  
+  const isRow = row === select?.row || row === current?.row || row === active?.row
+  if (isRow) {
+    logger.debug('rowClassName', {isRow,select,active,current})
+  }
+  if (isRow) {
     return "row-current";
   }
   return null;
@@ -414,6 +442,22 @@ onUnmounted(() => {
 
 // 事件注册
 const gridEvents: VxeGridListeners = {
+  currentChange(params) {
+    logger.info('currentChange')
+  },
+  cellAreaSelectionAllStart() {
+    logger.info('cellAreaSelectionAllStart')
+  },
+  ActiveCellChangeStart() {
+    logger.info('ActiveCellChangeStart')
+  },
+  editActived() {
+    logger.info('editActived')
+  },
+  keydown(params) {
+    const { row, column } = params
+    logger.debug('keydown', {column,row})
+  },
   headerCellClick (params) {
     const { column } = params
     console.log(`表头单元格点击${column.title}`)
@@ -427,7 +471,12 @@ const gridEvents: VxeGridListeners = {
     console.log(`表头右键单元格 ${column.title}`)
   },
   cellClick (params) {
-    cellClickEvent(params)
+    const { row, column } = params
+    // const $xGrid = xGrid.value
+    // logger.debug('cellClick', 'xGrid', $xGrid)
+    // logger.debug('cellClick', {column,row})
+    // logger.debug('status', status)
+    // cellClickEvent(params)
   },
   cellDblclick (params) {
     const { column } = params
@@ -457,7 +506,7 @@ const gridEvents: VxeGridListeners = {
   },
   scroll (params) {
     const bottomHeight = params.scrollHeight - params.scrollTop - params.bodyHeight
-    logger.info(gridEvents, 'scroll', bottomHeight)
+    // logger.info(gridEvents, 'scroll', bottomHeight)
 
     // 滚动到底部时，加载更多数据
 
@@ -588,6 +637,11 @@ const gridEvents: VxeGridListeners = {
   height: 100%;
 }
 
+/* 解决 cell 在编辑状态下，无选中边框的问题，改设置可以使其与选中状态 .col--selected 保持一致 */
+.vxe-table--render-default .vxe-body--column.col--actived {
+  box-shadow: inset 0 0 0 2px #409eff;
+}
+
 /* 解决只有一个 checkbox 时，checkbox 无法上下居中的问题 */
 .vxe-table--render-default .vxe-body--column.has-checkbox .vxe-cell {
   height: auto;
@@ -624,6 +678,12 @@ const gridEvents: VxeGridListeners = {
   outline: 1px solid rgba(0, 0, 0, 0.5);
   outline-offset: -3px;
 }
+
+/* 修改默认的 row-config.isCurrent 样式，使其与 选中行边框一致 */
+/* .vxe-table .vxe-body--row.row--current {
+  outline: 1px solid rgba(0, 0, 0, 0.5);
+  outline-offset: -3px;
+} */
 
 /* 拖拽鼠标样式 */
 .vxe-table .drag-btn {
